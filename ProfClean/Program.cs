@@ -31,15 +31,32 @@ namespace ProfClean
                 //https://docs.microsoft.com/en-us/dotnet/api/system.management.automation.powershell?view=pscore-6.2.0
                 //https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/remove-localuser?view=powershell-5.1
                 //https://blogs.msdn.microsoft.com/kebab/2014/04/28/executing-powershell-scripts-from-c/
+                Console.WriteLine(name);
                 using (PowerShell PowerShellInstance = PowerShell.Create())
-                {
-                    PowerShellInstance.AddScript($"Remove-LocalUser -sid {name}");
+                {                    
+                    PowerShellInstance.AddCommand($"Remove-LocalUser");
+                    PowerShellInstance.AddParameter($"-sid {name}");
                     IAsyncResult result = PowerShellInstance.BeginInvoke();
                     PowerShellInstance.Streams.Error.DataAdded += Error_DataAdded;
+                    foreach (var item in PowerShellInstance.Streams.Error)
+                    //this is returning the following error:
+                    //The term 'Remove-LocalUser' is not recognized as the name of a cmdlet
+                    //otherwise this app is working 5.10.19 2:23 PM
+
+                    {
+                        Console.WriteLine(item + " *** ");
+                    }
                     while (result.IsCompleted == false)
                     {
                         Thread.Sleep(1000);
                         Console.WriteLine("Waiting for pipeline to finish...");
+                    }
+                    //PowerShellInstance.EndInvoke(result);
+
+                    //write out any errors that may occur
+                    foreach (PSObject item in PowerShellInstance.EndInvoke(result))
+                    {
+                        Console.WriteLine("********" + item.ToString());
                     }
                     Console.WriteLine("Execution has stopped. The pipeline state is: " + PowerShellInstance.InvocationStateInfo.State);
                 }
@@ -49,9 +66,8 @@ namespace ProfClean
         }
 
        internal static void Error_DataAdded(object sender, DataAddedEventArgs e)
-        {
-            // do something when an error is written to the error stream
-            Console.WriteLine("An error was written to the Error stream!");
+        {           
+            Console.WriteLine("An error was written to the Error stream! " + e.ToString());
         }
 
         //build list of users on the computer
