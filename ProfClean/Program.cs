@@ -7,6 +7,7 @@ using System.Windows;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
+using System.DirectoryServices;
 
 namespace ProfClean
 {
@@ -28,38 +29,11 @@ namespace ProfClean
         {
             foreach (string name in GetLocalUserAccounts())
             {
-                //https://docs.microsoft.com/en-us/dotnet/api/system.management.automation.powershell?view=pscore-6.2.0
-                //https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/remove-localuser?view=powershell-5.1
-                //https://blogs.msdn.microsoft.com/kebab/2014/04/28/executing-powershell-scripts-from-c/
-                Console.WriteLine(name);
-                using (PowerShell PowerShellInstance = PowerShell.Create())
-                {                    
-                    PowerShellInstance.AddCommand($"Remove-LocalUser");
-                    PowerShellInstance.AddParameter($"-sid {name}");
-                    IAsyncResult result = PowerShellInstance.BeginInvoke();
-                    PowerShellInstance.Streams.Error.DataAdded += Error_DataAdded;
-                    foreach (var item in PowerShellInstance.Streams.Error)
-                    //this is returning the following error:
-                    //The term 'Remove-LocalUser' is not recognized as the name of a cmdlet
-                    //otherwise this app is working 5.10.19 2:23 PM
-
-                    {
-                        Console.WriteLine(item + " *** ");
-                    }
-                    while (result.IsCompleted == false)
-                    {
-                        Thread.Sleep(1000);
-                        Console.WriteLine("Waiting for pipeline to finish...");
-                    }
-                    //PowerShellInstance.EndInvoke(result);
-
-                    //write out any errors that may occur
-                    foreach (PSObject item in PowerShellInstance.EndInvoke(result))
-                    {
-                        Console.WriteLine("********" + item.ToString());
-                    }
-                    Console.WriteLine("Execution has stopped. The pipeline state is: " + PowerShellInstance.InvocationStateInfo.State);
-                }
+                DirectoryEntry localDirectory = new DirectoryEntry("WinNT://" + Environment.MachineName.ToString());
+                DirectoryEntries users = localDirectory.Children;
+                DirectoryEntry user = users.Find($"{name}");
+                users.Remove(user);
+                //working - need to remove dirs and maybe regkeys - hopefully reg keys are gone
                 Console.WriteLine(name);
             }
             Console.Read();
@@ -83,11 +57,12 @@ namespace ProfClean
                 string username = user.Substring(pos, user.Length - pos);                
                 if (username != "NEO" && username != "NETWORK SERVICE" && username != "LOCAL SERVICE" && username != "SYSTEM")
                     //replace with ed_admin
-                {                    
-                    NTAccount f = new NTAccount(username);
-                    SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
-                    String sidString = s.ToString();
-                    sidList.Add(sidString);
+                {
+                    //Console.WriteLine(username);
+                    //NTAccount f = new NTAccount(username);
+                    //SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
+                    //String sidString = s.ToString();
+                    sidList.Add(username);
                 }                
             }
             return sidList;
