@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.DirectoryServices;
+using Microsoft.Win32;
 
 namespace ProfClean
 {
@@ -27,7 +28,10 @@ namespace ProfClean
     {
         static void Main(string[] args)
         {
-            foreach (string name in GetLocalUserAccounts())
+            string regPath = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList";
+            Console.WriteLine(Registry.GetValue(regPath, "", ""));
+
+            foreach (string name in GetLocalUserNames())
             {
                 DirectoryEntry localDirectory = new DirectoryEntry("WinNT://" + Environment.MachineName.ToString());
                 DirectoryEntries users = localDirectory.Children;
@@ -36,6 +40,13 @@ namespace ProfClean
                 //working - need to remove dirs and maybe regkeys - hopefully reg keys are gone
                 Console.WriteLine(name);
             }
+
+            foreach (string sid in GetLocalUserSids())
+            {
+                
+            }
+
+
             Console.Read();
         }
 
@@ -45,8 +56,45 @@ namespace ProfClean
         }
 
         //build list of users on the computer
-        private static List<string> GetLocalUserAccounts()
+        private static List<string> GetLocalUserNames()
         {
+            List<string> usernameList = new List<string>();
+            List<string> sidList = new List<string>();
+            SelectQuery query = new SelectQuery("Win32_UserProfile");
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
+            foreach (ManagementObject sid in searcher.Get())
+            {
+                Console.WriteLine(sid);
+                //string user = new SecurityIdentifier(sid["SID"].ToString()).Translate(typeof(NTAccount)).ToString();
+                //int pos = user.LastIndexOf("\\") + 1;
+                //string username = user.Substring(pos, user.Length - pos);                
+                //if (username != "NEO" && username != "NETWORK SERVICE" && username != "LOCAL SERVICE" && username != "SYSTEM")
+                //    //replace with ed_admin
+                //{
+                //    Console.WriteLine(username);
+                //    NTAccount f = new NTAccount(username);
+                //    SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
+                //    String sidString = s.ToString();
+                //    sidList.Add(sidString);
+                //    usernameList.Add(username);
+                //}                
+            }
+            return usernameList;
+        }
+
+        //the error I was getting was caused because this application deleted the user from the machine but did not scrub the registry
+        //this syntax:
+        ////string user = new SecurityIdentifier(sid["SID"].ToString()).Translate(typeof(NTAccount)).ToString();
+        //queries the registry to find users, so it could see the sid but not the user on the machine
+        //this is fixed now
+
+        //foreach user, need to delete registry key by sid and then delete user folder by username
+
+        
+
+        private static List<string> GetLocalUserSids()
+        {
+            
             List<string> sidList = new List<string>();
             SelectQuery query = new SelectQuery("Win32_UserProfile");
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
@@ -54,16 +102,16 @@ namespace ProfClean
             {
                 string user = new SecurityIdentifier(sid["SID"].ToString()).Translate(typeof(NTAccount)).ToString();
                 int pos = user.LastIndexOf("\\") + 1;
-                string username = user.Substring(pos, user.Length - pos);                
+                string username = user.Substring(pos, user.Length - pos);
                 if (username != "NEO" && username != "NETWORK SERVICE" && username != "LOCAL SERVICE" && username != "SYSTEM")
-                    //replace with ed_admin
+                //replace with ed_admin
                 {
-                    //Console.WriteLine(username);
-                    //NTAccount f = new NTAccount(username);
-                    //SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
-                    //String sidString = s.ToString();
-                    sidList.Add(username);
-                }                
+                    Console.WriteLine(username);
+                    NTAccount f = new NTAccount(username);
+                    SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
+                    String sidString = s.ToString();
+                    sidList.Add(sidString);                    
+                }
             }
             return sidList;
         }
