@@ -14,12 +14,12 @@ namespace ProfClean
 
 
     //DEV NOTES:
-        //encountering error after successfully deleting a local account via Powershell
-        //this VS session has to run as admin for this program to execute successfully
-            //probably need to reboot to resolve error   
-        //this is close - need to figure out error and then perform more testing
-            //confirmed remove-user works in PS ISE which should mean it will work here
-        
+    //encountering error after successfully deleting a local account via Powershell
+    //this VS session has to run as admin for this program to execute successfully
+    //probably need to reboot to resolve error   
+    //this is close - need to figure out error and then perform more testing
+    //confirmed remove-user works in PS ISE which should mean it will work here
+
 
 
 
@@ -30,7 +30,7 @@ namespace ProfClean
             CleanUpAccounts();
             Console.WriteLine("test read");
             Console.Read();
-        }    
+        }
 
         //build list of users on the computer
         private static void CleanUpAccounts()
@@ -41,7 +41,7 @@ namespace ProfClean
             {
                 string user = new SecurityIdentifier(sid["SID"].ToString()).Translate(typeof(NTAccount)).ToString();
                 int pos = user.LastIndexOf("\\") + 1;
-                string username = user.Substring(pos, user.Length - pos);                
+                string username = user.Substring(pos, user.Length - pos);
                 if (username != "NEO" && username != "NETWORK SERVICE" && username != "LOCAL SERVICE" && username != "SYSTEM")
                 //replace with ed_admin
                 {
@@ -49,10 +49,12 @@ namespace ProfClean
                     SecurityIdentifier s = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
                     String sidString = s.ToString();
                     RemoveUserRegistryEntry(sidString);
-                    RemoveLocalUser(username);                    
+                    RemoveLocalUser(username);
                 }
-            }            
+            }
         }
+
+
 
         private static void RemoveUserRegistryEntry(string sidString)
         {
@@ -75,33 +77,29 @@ namespace ProfClean
             DirectoryEntries users = localDirectory.Children;
             DirectoryEntry user = users.Find($"{username}");
             users.Remove(user); //remove the user account from the pc
-
-            //if (Directory.Exists(dir))
-            //{
-            //    Console.WriteLine("Delete dir " + username);
-            //    ClearAttributes(dir);
-            //    Directory.Delete(dir, true);
-            //}
-            //this is not working because of read-only but I bet system when ran as KACE will do it - need to test at work
-            //will evaluate tomorrow
+            DelDir(dir);
         }
 
-        private static void ClearAttributes(string currentDir)
+        private static void DelDir(string path)
         {
-            var di = new DirectoryInfo(currentDir);        
-            di.Attributes &= ~FileAttributes.ReadOnly;          
+            System.Diagnostics.Process process = new System.Diagnostics.Process();
+            System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
+            startInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
+            startInfo.FileName = "cmd.exe";
+            startInfo.Arguments = $"/C rd /S /Q {path}";
+            startInfo.Verb = "runas";
+            process.StartInfo = startInfo;
+            process.Start();
         }
 
-        private static void Error_DataAdded(object sender, DataAddedEventArgs e)
+
+
+        internal static class NativeMethods
         {
-            Console.WriteLine("An error was written to the Error stream! " + e.ToString());
-        }
-    }
+            [DllImport("userenv.dll", CharSet = CharSet.Unicode, ExactSpelling = false, SetLastError = true)]
+            public static extern bool DeleteProfile(string sidString, string profilePath, string omputerName);
 
-    internal static class NativeMethods
-    {
-        [DllImport("userenv.dll", CharSet = CharSet.Unicode, ExactSpelling = false, SetLastError = true)]
-        public static extern bool DeleteProfile(string sidString, string profilePath, string omputerName);
+        }
 
     }
 }
